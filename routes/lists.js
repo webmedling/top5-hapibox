@@ -158,13 +158,33 @@ exports.register = function(server, options, next) {
   });
 
   server.route({  
-    method: 'PATCH',
-    path: '/lists/{id}/items',
+    method: 'GET',
+    path: '/lists/{id}/items/{index}',
     handler: function (request, reply) {
 
-        //var newItems = request.payload;
-        console.log(request.payload);
-        //reply().code(204);
+        db.lists.findOne({
+            _id: request.params.id
+        },
+        { items: 1 }, (err, doc) => {
+
+            if (err) {
+                return reply(Boom.wrap(err, 'Internal MongoDB error'));
+            }
+
+            if (!doc) {
+                return reply(Boom.notFound());
+            }
+
+            reply(doc.items[request.params.index]);
+        });
+
+    }
+  });
+
+  server.route({  
+    method: 'PATCH',
+    path: '/lists/{id}/items/add',
+    handler: function (request, reply) {
         
         db.lists.update({
             _id: request.params.id
@@ -186,6 +206,70 @@ exports.register = function(server, options, next) {
     config: {
         validate: {
             payload: Joi.array().items({
+                itemTitle: Joi.string().min(10).max(50).required(),
+                itemUrl: Joi.string().uri().max(500).optional()
+            })
+        }
+    }
+  });
+
+  server.route({  
+    method: 'PATCH',
+    path: '/lists/{id}/items/replace',
+    handler: function (request, reply) {
+        
+        db.lists.update({
+            _id: request.params.id
+        }, {
+            $set: { "items": request.payload }
+        }, function (err, result) {
+
+            if (err) {
+                return reply(Boom.wrap(err, 'Internal MongoDB error'));
+            }
+
+            if (result.n === 0) {
+                return reply(Boom.notFound());
+            }
+
+            reply().code(204);
+        });
+    },
+    config: {
+        validate: {
+            payload: Joi.array().items({
+                itemTitle: Joi.string().min(10).max(50).required(),
+                itemUrl: Joi.string().uri().max(500).optional()
+            })
+        }
+    }
+  });
+
+  server.route({  
+    method: 'PATCH',
+    path: '/lists/{id}/items/replace/{index}',
+    handler: function (request, reply) {
+        
+        db.lists.update({
+            _id: request.params.id
+        }, {
+            $set: { [ 'items.' + request.params.index ]: request.payload }
+        }, function (err, result) {
+
+            if (err) {
+                return reply(Boom.wrap(err, 'Internal MongoDB error'));
+            }
+
+            if (result.n === 0) {
+                return reply(Boom.notFound());
+            }
+
+            reply().code(204);
+        });
+    },
+    config: {
+        validate: {
+            payload: Joi.object({
                 itemTitle: Joi.string().min(10).max(50).required(),
                 itemUrl: Joi.string().uri().max(500).optional()
             })
